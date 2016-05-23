@@ -6,7 +6,6 @@
 #include <iostream>
 #include <GL/freeglut.h>         //l�dt alles f�r OpenGL
 #include "Cube.h"
-#include <math.h>
 
 //PRECOMPILER CONSTANTS BEGIN
 //WINSIZE
@@ -20,7 +19,7 @@
 
 //glOrtho
 #ifndef ORTHO_BASE
-#define ORTHO_BASE 2.0
+#define ORTHO_BASE 5.0
 #endif
 
 #ifndef ORTHO_LEFT
@@ -40,16 +39,34 @@
 #endif
 
 #ifndef ORTHO_NEAR
-#define ORTHO_NEAR 0.0
+#define ORTHO_NEAR .0
 #endif
 
 #ifndef ORTHO_FAR
 #define ORTHO_FAR ORTHO_BASE * 2.5
 #endif
 
+//Rotation Y/N
+#ifndef ROTATE_BODY
+#define ROTATE_BODY true
+#endif
+
+//moveSpeeMultiplier
+#ifndef MOVE_SPEED_MULTIPLIER
+#define MOVE_SPEED_MULTIPLIER 10//3
+#endif
+
 //PRECOMPILER CONSTANTS END
 
+bool movementInProgess = false;
+
+float fMoveBody = .0;
+float fJumpMoveBody = .0;
+
 float fRotationBody = .0;
+
+float fRotationLegs = .0;
+float fRotationLegsToAdd = 1.;
 
 float fRotationArms = 30.0;
 float fRotationArmsToAdd = -1.0;
@@ -68,143 +85,48 @@ void Init()
     glEnable(GL_DEPTH_TEST);
     glClearDepth(1.0);
     //glClearColor(1.0, 0.5, 0.0, 1.0);
-    glClearColor(0.0f,1.0f,0.0f,1.0f);
+    glClearColor(0.0f,.1f,0.1f,1.0f);
 }
-/*
-void oldRenderGuy(float xOffset, float yOffset, float zOffset) {
+
+void renderGuy(float xOffset, float yOffset, float zOffset, bool negateBodyRotation) {
+    /*
+   * Order
+   * Push
+   *  MoveParent
+   *  RotateParent
+   *
+   *  Push Child
+   *   Move Child
+   *   Rotate Child
+   *   Scale Child
+   *   Create Cube
+   *  Pop Child
+   *
+   *  Scale Parent
+   *  Create Cube
+   * Pop
+   * */
+
     //Torso
     glPushMatrix();
-    glScalef(2., 3., 1.);
-    Cube(0.4);
-    glPopMatrix();
-
-    //HEAD
-    glPushMatrix();
-    glColor4f(1.0f,1.0f,1.0f,1.0f);
-    glTranslatef(0., 1.2, 0.);
-    glBegin( GL_POLYGON );
-    GLUquadricObj *quadric;
-    quadric = gluNewQuadric();
-
-    gluQuadricDrawStyle(quadric, GLU_FILL );
-    gluSphere( quadric , .4 , 36 , 18 );
-
-    gluDeleteQuadric(quadric);
-    glEndList();
-
-    glEnd();
-    glPopMatrix();
-
-    //Neck
-    glPushMatrix();
-    glTranslatef(0. + xOffset, 0.7 + yOffset, -0. + zOffset);
-    glScalef(.7, 0.9, 0.9);
-    Cube(0.4);
-    glPopMatrix();
-
-
-    //Arm Right 1
-    glPushMatrix();
-    glRotatef(fRotationArms, 0., 0., 1.);
-    glTranslatef(0.4 + xOffset, 0. + yOffset, 0. + zOffset);
-    glScalef(2, 1., 1.);
-    Cube(0.4);
-    //glPopMatrix();
-
-    //Arm Right 2
-    glPushMatrix();
-    glRotatef(-fRotationArms, 0., 0., 1.);
-    //glTranslatef(1. + xOffset, 0. + yOffset, 0. + zOffset);
-    glScalef(1.5, .5, 1.);
-    Cube(0.4);
-    glPopMatrix();
-    glPopMatrix();
-
-    //Arm Left 1
-    glPushMatrix();
-    glRotatef(-fRotationArms, 0., 0., 1.);
-    glTranslatef(-0.4 + xOffset, 0. + yOffset, 0. + zOffset);
-    glScalef(2, 1., 1.);
-    Cube(0.4);
-    //glPopMatrix();
-
-    //Arm Left 2
-    glPushMatrix();
-    glRotatef(fRotationArms, 0., 0., 1.);
-    //glTranslatef(-1. + xOffset, 0. + yOffset, 0. + zOffset);
-    glScalef(1.5, .5, 1.);
-    Cube(0.4);
-    glPopMatrix();
-    glPopMatrix();
-
-    //Leg Right
-    glPushMatrix();
-    glTranslatef(0.2 + xOffset, -0.5 + yOffset, 0. + zOffset);
-    glScalef(.5, 2., 1.);
-    Cube(0.4);
-    glPopMatrix();
-
-    //Foot Right
-    glPushMatrix();
-    glRotatef(fRotationFeet, 0., 1., 0.);
-    glTranslatef(0.3 + xOffset, -1. + yOffset, 0. + zOffset);
-    glScalef(1., .5, 1.);
-    Cube(0.4);
-    glPopMatrix();
-
-    //Leg Left
-    glPushMatrix();
-    glTranslatef(-0.2 + xOffset, -0.5 + yOffset, 0. + zOffset);
-    glScalef(.5, 2., 1.);
-    Cube(0.4);
-    glPopMatrix();
-
-    //Foot Left
-    glPushMatrix();
-    glRotatef(-fRotationFeet, 0., 1., 0.);
-    glTranslatef(-0.3 + xOffset, -1. + yOffset, 0. + zOffset);
-    glScalef(1., .5, 1.);
-    Cube(0.4);
-    glPopMatrix();
-}
-*/
-
-void renderGuy(float xOffset, float yOffset, float zOffset) {
-    //Torso
-    glPushMatrix();
-      glRotatef(fRotationBody, 0., 1., 0.);
-      glTranslatef(xOffset, yOffset, zOffset);
-      glScalef(2., 3., 1.);
-      Cube(0.4);
+      //glTranslatef(xOffset  + (movementInProgess ? fMoveBody : 0), yOffset, zOffset);
+      glTranslatef(xOffset  + (negateBodyRotation ? -1 : 1) * fMoveBody, yOffset + fJumpMoveBody, zOffset);
+      //glTranslatef(xOffset, yOffset, zOffset);
+      if(ROTATE_BODY) {
+          glRotatef((negateBodyRotation ? -1 : 1) * fRotationBody, 0., 1., 0.);
+      }
 
     //Neck
       glPushMatrix();
-        glTranslatef(0., 0.1, -0.);
-        glScalef(.2, 0.9, 0.4);
+        glTranslatef(0., .75, -0.);
+        glScalef(.4, .9, 0.4);
         Cube(0.4);
       glPopMatrix();
 
-    //HEAD round
-      /*glPushMatrix();
-        glColor4f(1.0f,.0f,1.0f,1.0f);
-        glTranslatef(0., .35, 0.);
-        glBegin( GL_POLYGON );
-        GLUquadricObj *quadric;
-        quadric = gluNewQuadric();
-
-        gluQuadricDrawStyle(quadric, GLU_FILL );
-        gluSphere( quadric , .1 , 36 , 18 );
-
-        gluDeleteQuadric(quadric);
-        glEndList();
-
-        glEnd();
-      glPopMatrix();*/
     //HEAD Cube
       glPushMatrix();
-        glTranslatef(0., 0.36, 0.);
-        glScalef(0.55, .4, .9);
-        Cube(0.4);
+        glTranslatef(0., 1., 0.);
+        glRotatef(0.9 * fRotationArms, 0., 1., 0.);
         //Eye left
         glPushMatrix();
           glTranslatef(-.1, .06, .2);
@@ -232,70 +154,84 @@ void renderGuy(float xOffset, float yOffset, float zOffset) {
           glScalef(.5, .1, .1);
           Cube(.4);
         glPopMatrix();
+
+        glScalef(0.9, 1., .9);
+        Cube(0.4);
       glPopMatrix();
 
     //Arm Right 1
       glPushMatrix();
-        glRotatef(fRotationArms, 0., 0., 1.);
         glTranslatef(.3, 0.05, 0.);
-        glScalef(.8, 0.33, .33);
-        Cube(0.4);
+        glRotatef(fRotationArms, 0., 0., 1.);
+
 
     //Arm Right 2
         glPushMatrix();
-          glRotatef(-fRotationArms, 0., 0., 1.);
-          glTranslatef(0.25, 0., 0.);
-          glScalef(0.5, .5, 1.);
+          glTranslatef(.3, 0., 0.);
+          glRotatef(1.1 * fRotationArms, 0., 0., 1.);
+          glScalef(1.05, .5, .25);
           Cube(0.4);
         glPopMatrix();
-      glPopMatrix();
 
-    //Arm Left 1
-      glPushMatrix();
-        glRotatef(-fRotationArms, 0., 0., 1.);
-        glTranslatef(-.3, 0.05, 0.);
-        glScalef(.8, 0.33, .33);
+        glScalef(2., 1., .33);
         Cube(0.4);
-
-    //Arm Left 2
-        glPushMatrix();
-          glRotatef(fRotationArms, 0., 0., 1.);
-          glTranslatef(-.25, 0., 0.);
-          glScalef(0.5, .5, 1.);
-          Cube(0.4);
-        glPopMatrix();
       glPopMatrix();
+
+    //Arm Right 1
+    glPushMatrix();
+      glTranslatef(-.3, 0.05, 0.);
+      glRotatef(-fRotationArms, 0., 0., 1.);
+
+
+    //Arm Right 2
+      glPushMatrix();
+        glTranslatef(-.3, 0., 0.);
+        glRotatef(-1.1 * fRotationArms, 0., 0., 1.);
+        glScalef(1.05, .5, .25);
+        Cube(0.4);
+       glPopMatrix();
+
+      glScalef(2., 1., .33);
+      Cube(0.4);
+    glPopMatrix();
 
     //Leg Right
       glPushMatrix();
-        glTranslatef(0.1, -.25, 0.);
-        glScalef(.3, .3, 1.);
-        Cube(0.4);
+        glTranslatef(0.18, -.7, 0.005);
+        glRotatef((movementInProgess ? fRotationLegs : 0), -1., 0., 0.);
 
     //Foot Right
         glPushMatrix();
+          glTranslatef(0.025, -.35, 0.1);
           glRotatef(fRotationFeet, 0., 1., 0.);
-          glTranslatef(0.1, -.3, 0.);
-          glScalef(1.8, .55, 1.);
+          glScalef(.7, .5, 1.);
           Cube(0.4);
         glPopMatrix();
-      glPopMatrix();
 
-    //Leg Left
-      glPushMatrix();
-        glTranslatef(-0.1, -.25, 0.);
-        glScalef(.3, .3, 1.);
+        glScalef(.6, 1.25, .4);
         Cube(0.4);
-
-    //Foot Left
-        glPushMatrix();
-          glRotatef(-fRotationFeet, 0., 1., 0.);
-          glTranslatef(-0.1, -.3, 0.);
-          glScalef(1.8, .55, 1.);
-          Cube(0.4);
-        glPopMatrix();
       glPopMatrix();
 
+
+    //Leg left
+    glPushMatrix();
+      glTranslatef(-0.18, -.7, 0.005);
+      glRotatef((movementInProgess ? -fRotationLegs : 0), -1., 0., 0.);
+
+    //Foot left
+      glPushMatrix();
+        glTranslatef(-0.025, -.35, 0.1);
+        glRotatef(-fRotationFeet, 0., 1., 0.);
+        glScalef(.7, .5, 1.);
+        Cube(0.4);
+      glPopMatrix();
+
+      glScalef(.6, 1.25, .4);
+      Cube(0.4);
+    glPopMatrix();
+
+    glScalef(2., 3., 1.);
+    Cube(0.4);
     glPopMatrix();
 }
 
@@ -310,13 +246,41 @@ void RenderScene() //Zeichenfunktion
     gluLookAt ( 0., 0., 1., 0., 0., 0., 0., 1., 0.);
     //gluLookAt ( camX, camY, camZ, 0., 0., 0., 0., 1., 0.);
 
-    //glutWireCube(0.2);
+    /*glBegin( GL_POLYGON );
+        glColor4f  ( 0.0f, 0.0f, 1.0f, 1.0f );
+        glVertex3f(ORTHO_LEFT, -.1, -3. );
+        glColor4f  ( 0.0f, 1.0f, 1.0f, 1.0f );
+        glVertex3f(ORTHO_LEFT,  -2.5, -.1 );
+        glVertex3f(ORTHO_RIGHT, -2.5, -.1);
+        glColor4f  ( 0.0f, 0.0f, 1.0f, 1.0f );
+        glVertex3f(ORTHO_RIGHT, -.1, -3.);
+    glEnd();
 
-    renderGuy(0.,0.,0.);
+    glBegin( GL_POLYGON );
+        glColor4f(1.0f,0.0f,0.0f,1.0f);
+        glVertex3f(ORTHO_LEFT,  -.55, 3. );
+        glColor4f(1.f,0.0f,1.0f,1.0f);
+        glVertex3f(ORTHO_LEFT, -3.5, -3.5 );
+        glVertex3f(ORTHO_RIGHT, -3.5, -3.5);
+        glColor4f(1.0f,0.0f,0.0f,1.0f);
+        glVertex3f(ORTHO_RIGHT, -.55, 3.);
+    glEnd();*/
 
-    //renderGuy(5., 0., 0.);
-    //renderGuy(-5., 0., 0.);
-    //renderGuy(0., 3., .5);
+    /*renderGuy(0., 1., -1., false);
+    renderGuy(3., 1., -1., false);
+    renderGuy(-3., 1., -1., false);
+
+    renderGuy(-1.5, 0., 0., true);
+    renderGuy(1.5, 0., 0., true);
+    */
+    renderGuy(0,0.,0., false);
+    renderGuy(-2., 0.,0., false);
+    renderGuy(2,0.,0., false);
+
+    renderGuy(-1.,1.,-1., true);
+    renderGuy(1.,1.,-1., true);
+    renderGuy(3.,1.,-1., true);
+    renderGuy(-3.,1.,-1., true);
 
     glutSwapBuffers();
 
@@ -334,19 +298,44 @@ void Reshape(int width,int height)
     glViewport(0, 0, width, height);
 
     // Frustum definieren (siehe unten)
-    //glOrtho(-10., 10., -10., 10., 0., 10.);
-    //glOrtho(-2., 2., -2., 2., 0., 5.);
     glOrtho(ORTHO_LEFT, ORTHO_RIGHT, ORTHO_BOTTOM, ORTHO_TOP, ORTHO_NEAR, ORTHO_FAR);
-    // gluPerspective(senkr. Oeffnungsw., Seitenverh., zNear, zFar);
-    //gluPerspective(45., 1., 0.1, 2.0);
 
     // Matrix f�r Modellierung/Viewing
     glMatrixMode(GL_MODELVIEW);
 }
 
 void Animate (int value) {
+    static int legMoveCounter = 0;
+    static float jumpToAdd = .03;
 
-    fRotationBody += 1;
+    movementInProgess = fRotationBody == 90 || fRotationBody == 270;
+    //move
+    if(movementInProgess) {
+        fRotationLegs += fRotationLegsToAdd;
+        if(fRotationLegs >= 30 || fRotationLegs <= -30) {
+            legMoveCounter++;
+            fRotationLegsToAdd = (fRotationLegs >= 30 ? -1 : 1);
+        }
+        if(legMoveCounter >= 2) {
+            legMoveCounter = 0;
+        }
+        fMoveBody += .001 * (fRotationBody == 90 ? 1 : -1) * MOVE_SPEED_MULTIPLIER;
+        if(fMoveBody >= 1.5 || fMoveBody <= -1.5) {
+            fRotationBody += 1 * MOVE_SPEED_MULTIPLIER;
+        }
+    //Perform Jump
+    } else if(fRotationBody == 0 || fRotationBody == 180) {
+        fJumpMoveBody += jumpToAdd;
+        if(fJumpMoveBody >= .5) {
+            jumpToAdd *= -1;
+        } if(fJumpMoveBody <= 0) {
+            jumpToAdd *= -1;
+            fRotationBody += 1 * MOVE_SPEED_MULTIPLIER;
+        }
+    }else {
+        fRotationBody += 1 * MOVE_SPEED_MULTIPLIER;
+    }
+
     if(fRotationBody >= 360) {
         fRotationBody = 0;
     }
@@ -354,15 +343,11 @@ void Animate (int value) {
     fRotationArms = fRotationArms + fRotationArmsToAdd;  // Rotationswinkel aendern
     if ( (fRotationArms <= -30.0 && fRotationArmsToAdd < 0) || (fRotationArms >= 30.0 && fRotationArmsToAdd > 0) ) {
         fRotationArmsToAdd *= -1;
-
-        std::cout << "Arm rotation switched " << std::endl;
     }
     fRotationFeet = fRotationFeet + fRotationFeetToAdd;  // Rotationswinkel aendern
     if ( (fRotationFeet <= 0.0 && fRotationFeetToAdd < 0) || (fRotationFeet >= 20.0 && fRotationFeetToAdd > 0) ) {
         fRotationFeetToAdd *= -1;
     }
-
-    //std::cout << "fRotationArms=" << fRotationArms << std::endl;
 
     glutPostRedisplay();
     // Timer wieder registrieren - Animate wird so nach 10 msec mit value+=1 aufgerufen.
